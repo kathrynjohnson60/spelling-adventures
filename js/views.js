@@ -8,6 +8,29 @@
    ===================================================================== */
 'use strict';
 
+/* "Have a class code?" box for students (only when accounts are set up). */
+function joinBoxHTML() {
+  if (!Cloud.enabled) return '';
+  return `
+    <section class="card join-card">
+      <h2>🎒 Have a class code?</h2>
+      <form class="join-form" autocomplete="off">
+        <input name="code" maxlength="8" placeholder="e.g. K7M2QX" aria-label="Class code" autocapitalize="characters" spellcheck="false">
+        <button type="submit" class="btn primary">Get my list</button>
+      </form>
+    </section>`;
+}
+function bindJoinBox(main) {
+  const f = Util.$('.join-form', main);
+  if (!f) return;
+  f.onsubmit = e => {
+    e.preventDefault();
+    const code = f.code.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length !== 6) return UI.toast('A class code has 6 letters and numbers.');
+    App.go(`#/join/${code}`);
+  };
+}
+
 const Views = {
   /* ================= HOME DASHBOARD ================= */
   home(main) {
@@ -26,9 +49,13 @@ const Views = {
             <a class="btn primary big" href="#/new">➕ Make my first list</a>
             <button type="button" class="btn big" data-do="samples">✨ Try sample lists</button>
           </div>
-          <p class="muted small">Everything is saved in this browser on this device. No account needed.</p>
-        </section>`;
+          <p class="muted small">${Cloud.enabled
+            ? 'Teachers and parents: <a href="#/account">sign in</a> to save lists to your account. Students: use your class code below.'
+            : 'Everything is saved in this browser on this device. No account needed.'}</p>
+        </section>
+        ${joinBoxHTML()}`;
       Util.$('[data-do=samples]', main).onclick = () => { Store.addSamples(); UI.toast('✨ Added 6 sample lists'); App.route(); };
+      bindJoinBox(main);
       return;
     }
 
@@ -40,9 +67,14 @@ const Views = {
         <div>
           <h1>Ready for an adventure? 🗺️</h1>
           <p class="muted">${Util.plural(lists.length, 'list')} · ${Util.plural(totalWords, 'word')} · pick a list and choose a game!</p>
+          ${Cloud.enabled ? `<p class="muted small">${Cloud.user
+            ? `☁️ Saved to ${Util.esc(Cloud.user.displayName || Cloud.user.email || 'your account')}’s account`
+            : '💾 Saved in this browser · <a href="#/account">sign in</a> to save lists to your account'}</p>` : ''}
         </div>
         <a class="btn primary big" href="#/new">➕ New list</a>
       </section>
+
+      ${joinBoxHTML()}
 
       ${needsPractice.length ? `
         <section class="card practice-banner">
@@ -78,6 +110,8 @@ const Views = {
                 </a>
                 <div class="lc-meta">
                   <span class="badge">${Util.plural(l.words.length, 'word')}</span>
+                  ${l.origin === 'class' ? `<span class="badge class">🎒 Class list${l.from ? ' · ' + Util.esc(l.from) : ''}</span>` : ''}
+                  ${l.shareCode ? `<span class="badge shared">🔗 Shared · ${l.shareCode}</span>` : ''}
                   ${missed ? `<a class="badge missed" href="#/list/${l.id}?missed=1">🎯 ${missed} to practice</a>` : ''}
                 </div>
                 <div class="lc-launch">
@@ -86,9 +120,11 @@ const Views = {
                   <a class="quick more" href="#/list/${l.id}" title="All activities"><span aria-hidden="true">🧩</span><small>All</small></a>
                 </div>
                 <div class="lc-actions">
-                  <a class="btn small ghost" href="#/edit/${l.id}">✏️ Edit</a>
-                  <button type="button" class="btn small ghost" data-dup="${l.id}">⧉ Duplicate</button>
-                  <button type="button" class="btn small ghost danger-text" data-del="${l.id}">🗑 Delete</button>
+                  ${l.origin === 'class'
+                    ? `<button type="button" class="btn small ghost danger-text" data-del="${l.id}">🗑 Remove</button>`
+                    : `<a class="btn small ghost" href="#/edit/${l.id}">✏️ Edit</a>
+                       <button type="button" class="btn small ghost" data-dup="${l.id}">⧉ Duplicate</button>
+                       <button type="button" class="btn small ghost danger-text" data-del="${l.id}">🗑 Delete</button>`}
                 </div>
               </article>`;
             }).join('')}
@@ -103,9 +139,12 @@ const Views = {
       const del = e.target.closest('[data-del]');
       if (del) {
         const l = Store.getList(del.dataset.del);
-        if (await UI.confirm(`Delete “${Util.esc(l.name)}” and its ${Util.plural(l.words.length, 'word')}? This can’t be undone.`, '🗑 Delete', true)) {
+        const msg = l.origin === 'class'
+          ? `Remove “${Util.esc(l.name)}” from this device? You can get it again with the class code ${Util.esc(l.classCode)}.`
+          : `Delete “${Util.esc(l.name)}” and its ${Util.plural(l.words.length, 'word')}? This can’t be undone.${l.shareCode ? ' Its class code will also stop working.' : ''}`;
+        if (await UI.confirm(msg, l.origin === 'class' ? '🗑 Remove' : '🗑 Delete', true)) {
           Store.deleteList(l.id);
-          UI.toast('List deleted');
+          UI.toast(l.origin === 'class' ? 'List removed' : 'List deleted');
           App.route();
         }
         return;
@@ -116,6 +155,7 @@ const Views = {
         Util.$$('[data-section]', main).forEach(s => { s.hidden = chip.dataset.grade !== 'all' && s.dataset.section !== chip.dataset.grade; });
       }
     };
+    bindJoinBox(main);
   },
 
   /* ================= LIST HUB ================= */
@@ -136,11 +176,16 @@ const Views = {
           <div class="hub-title">
             <span class="grade-pill">${g.emoji} ${g.label}</span>
             <h1>${Util.esc(list.name)}</h1>
+            ${list.origin === 'class' ? `<p class="muted small">🎒 Class list${list.from ? ' from ' + Util.esc(list.from) : ''} · code ${Util.esc(list.classCode)}</p>` : ''}
           </div>
           <div class="btn-row">
-            <a class="btn small" href="#/edit/${list.id}">✏️ Edit</a>
-            <button type="button" class="btn small" data-do="dup">⧉ Duplicate</button>
-            <button type="button" class="btn small ghost danger-text" data-do="del">🗑 Delete</button>
+            ${list.origin === 'class'
+              ? `<button type="button" class="btn small" data-do="refresh">🔄 Get latest from teacher</button>
+                 <button type="button" class="btn small ghost danger-text" data-do="del">🗑 Remove</button>`
+              : `${Cloud.user ? `<button type="button" class="btn small primary" data-do="share">🔗 ${list.shareCode ? 'Shared · ' + list.shareCode : 'Share with students'}</button>` : ''}
+                 <a class="btn small" href="#/edit/${list.id}">✏️ Edit</a>
+                 <button type="button" class="btn small" data-do="dup">⧉ Duplicate</button>
+                 <button type="button" class="btn small ghost danger-text" data-do="del">🗑 Delete</button>`}
           </div>
         </section>
 
@@ -186,8 +231,13 @@ const Views = {
       const b = e.target.closest('[data-do]');
       if (!b) return;
       if (b.dataset.do === 'dup') { const c = Store.duplicateList(list.id); UI.toast(`⧉ Made “${c.name}”`); App.go(`#/edit/${c.id}`); }
-      if (b.dataset.do === 'del' && await UI.confirm(`Delete “${Util.esc(list.name)}”? This can’t be undone.`, '🗑 Delete', true)) {
-        Store.deleteList(list.id); UI.toast('List deleted'); App.go('#/');
+      if (b.dataset.do === 'share') return Views.shareDialog(list);
+      if (b.dataset.do === 'refresh') return App.go(`#/join/${list.classCode}`);
+      const isClass = list.origin === 'class';
+      if (b.dataset.do === 'del' && await UI.confirm(isClass
+        ? `Remove “${Util.esc(list.name)}” from this device? You can get it again with the class code ${Util.esc(list.classCode)}.`
+        : `Delete “${Util.esc(list.name)}”? This can’t be undone.${list.shareCode ? ' Its class code will also stop working.' : ''}`, isClass ? '🗑 Remove' : '🗑 Delete', true)) {
+        Store.deleteList(list.id); UI.toast(isClass ? 'List removed' : 'List deleted'); App.go('#/');
       }
       if (b.dataset.do === 'clear-missed' && await UI.confirm('Clear the missed-words list for this spelling list?', 'Clear')) {
         Store.clearMissed(list.id); useMissed = false; draw();
@@ -200,6 +250,12 @@ const Views = {
   editor(main, id) {
     const existing = id ? Store.getList(id) : null;
     if (id && !existing) return Views.notFound(main);
+    if (existing && existing.origin === 'class') {
+      main.innerHTML = `<section class="card center"><h1>🎒 This is your teacher’s list</h1>
+        <p class="muted">Class lists can’t be changed here. Use <b>Duplicate</b> to make your own copy you can edit.</p>
+        <a class="btn primary" href="#/list/${existing.id}">⬅ Back to the list</a></section>`;
+      return;
+    }
     const draft = existing ? JSON.parse(JSON.stringify(existing)) : { id: Util.uid(), name: '', grade: '1', words: [] };
     let dirty = false;
     const markDirty = () => { dirty = true; };
@@ -464,12 +520,172 @@ const Views = {
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       }
       if (b.dataset.do === 'samples') { Store.addSamples(); UI.toast('✨ Added 6 sample lists'); }
-      if (b.dataset.do === 'reset' && await UI.confirm('This deletes <b>every</b> list, missed word, and setting saved in this browser. Download a backup first if you might need them.', '🗑 Delete everything', true)) {
+      if (b.dataset.do === 'reset' && await UI.confirm('This deletes <b>every</b> list, missed word, and setting saved in this browser. Download a backup first if you might need them.'
+          + (Cloud.user ? '<br><br>You’ll also be signed out. Lists saved to your account are <b>not</b> deleted — they come back when you sign in.' : ''), '🗑 Delete everything', true)) {
+        if (Cloud.user) await Cloud.signOut();
         Store.resetAll();
         UI.toast('Everything was deleted.');
         App.go('#/');
       }
     });
+  },
+
+  /* ================= ACCOUNT (teachers & parents) ================= */
+  account(main) {
+    if (!Cloud.enabled) {
+      main.innerHTML = `
+        <section class="card settings">
+          <h1>👤 Accounts</h1>
+          <p>Accounts aren’t available here. ${/^https?:$/.test(location.protocol)
+            ? 'They haven’t been set up for this copy of the app yet (see SETUP-ACCOUNTS.md).'
+            : 'Open the website version of Spelling Adventures to sign in.'}</p>
+          <p class="muted">Lists are being saved in this browser only.</p>
+        </section>`;
+      return;
+    }
+    const u = Cloud.user;
+    if (u) {
+      const own = Store.lists.filter(l => l.origin !== 'class');
+      main.innerHTML = `
+        <section class="card settings">
+          <h1>👤 My account</h1>
+          <p>Signed in as <b>${Util.esc(u.displayName || u.email || 'you')}</b>${u.displayName && u.email ? ` <span class="muted">(${Util.esc(u.email)})</span>` : ''}.</p>
+          <p>☁️ Your ${Util.plural(own.length, 'list')} ${own.length === 1 ? 'is' : 'are'} saved to your account and will appear on any computer or tablet where you sign in.</p>
+          <p class="muted">To give a list to students, open the list and choose <b>🔗 Share with students</b>. Students don’t need accounts.</p>
+          <div class="btn-row">
+            <a class="btn primary" href="#/">📚 My lists</a>
+            <button type="button" class="btn" data-do="signout">🚪 Sign out</button>
+          </div>
+        </section>`;
+      Util.$('[data-do=signout]', main).onclick = async () => {
+        await Cloud.signOut();
+        UI.toast('Signed out. Your lists are still saved in your account.');
+        App.go('#/');
+      };
+      return;
+    }
+
+    let mode = 'signin';   // 'signin' | 'create'
+    const draw = () => {
+      main.innerHTML = `
+        <section class="card settings account-card">
+          <h1>👤 Sign in</h1>
+          <p>Accounts are for <b>teachers and parents</b>. Sign in to save your spelling lists to your account
+            so they appear on every device, and to share lists with students using a class code.</p>
+          <p class="muted small">🎒 Students don’t need an account. They use the class code from their teacher on the home page.</p>
+
+          <button type="button" class="btn big google-btn" data-do="google">
+            <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+            Sign in with Google
+          </button>
+
+          <div class="or-line"><span>or use your email</span></div>
+
+          <div class="seg" role="tablist">
+            <button type="button" class="seg-btn ${mode === 'signin' ? 'active' : ''}" data-mode="signin">Sign in</button>
+            <button type="button" class="seg-btn ${mode === 'create' ? 'active' : ''}" data-mode="create">Create an account</button>
+          </div>
+          <form class="account-form" autocomplete="on">
+            ${mode === 'create' ? `<label class="field">Your name <span class="muted small">(students see this on shared lists, e.g. “Mrs. Johnson”)</span>
+              <input name="name" autocomplete="name" maxlength="60"></label>` : ''}
+            <label class="field">Email <input name="email" type="email" autocomplete="email" required></label>
+            <label class="field">Password ${mode === 'create' ? '<span class="muted small">(at least 6 characters)</span>' : ''}
+              <input name="password" type="password" autocomplete="${mode === 'create' ? 'new-password' : 'current-password'}" required minlength="6"></label>
+            <div class="form-msg" aria-live="polite"></div>
+            <div class="btn-row">
+              <button type="submit" class="btn primary">${mode === 'create' ? '✨ Create my account' : '🔑 Sign in'}</button>
+              ${mode === 'signin' ? '<button type="button" class="linkish" data-do="reset">Forgot your password?</button>' : ''}
+            </div>
+          </form>
+        </section>`;
+
+      const msg = Util.$('.form-msg', main);
+      const show = (text, bad) => { msg.textContent = text; msg.className = `form-msg ${bad ? 'bad' : 'good'}`; };
+      const busy = on => Util.$$('button', main).forEach(b => { b.disabled = on; });
+
+      Util.$('[data-do=google]', main).onclick = async () => {
+        busy(true);
+        try { await Cloud.signInGoogle(); App.go('#/'); }
+        catch (e) { show(Cloud.friendly(e), true); }
+        busy(false);
+      };
+      Util.$$('[data-mode]', main).forEach(b => { b.onclick = () => { mode = b.dataset.mode; draw(); }; });
+      const form = Util.$('.account-form', main);
+      form.onsubmit = async e => {
+        e.preventDefault();
+        const f = new FormData(form);
+        busy(true);
+        try {
+          if (mode === 'create') await Cloud.createEmail(String(f.get('name') || '').trim(), f.get('email'), f.get('password'));
+          else await Cloud.signInEmail(f.get('email'), f.get('password'));
+          App.go('#/');
+        } catch (err) { show(Cloud.friendly(err), true); }
+        busy(false);
+      };
+      const reset = Util.$('[data-do=reset]', main);
+      if (reset) reset.onclick = async () => {
+        const email = Util.$('[name=email]', form).value.trim();
+        if (!email) return show('Type your email above first, then choose “Forgot your password?”', true);
+        try { await Cloud.resetPassword(email); show('📧 We sent a password-reset link to ' + email + '.', false); }
+        catch (err) { show(Cloud.friendly(err), true); }
+      };
+    };
+    draw();
+  },
+
+  /* ================= JOIN WITH A CLASS CODE (students) ================= */
+  async join(main, code) {
+    main.innerHTML = `<section class="card center pop-in"><div class="welcome-art">🎒</div><h1>Getting your class list…</h1></section>`;
+    if (!Cloud.enabled) {
+      main.innerHTML = `<section class="card center"><h1>Class codes aren’t available here</h1><p class="muted">Open the website version of Spelling Adventures to use a class code.</p><a class="btn primary" href="#/">🏠 Home</a></section>`;
+      return;
+    }
+    try {
+      const shared = await Cloud.fetchShared(code);
+      const l = Store.saveClassList(shared);
+      UI.toast(`🎒 Got “${l.name}”${shared.from ? ' from ' + shared.from : ''}!`, 'good');
+      App.go(`#/list/${l.id}`);
+    } catch (e) {
+      main.innerHTML = `
+        <section class="card center pop-in">
+          <div class="welcome-art">🔍</div>
+          <h1>Hmm, that didn’t work</h1>
+          <p>${Util.esc(e.message || 'Please check your internet connection and try again.')}</p>
+          <a class="btn primary" href="#/">🏠 Back to home</a>
+        </section>`;
+    }
+  },
+
+  /** Teachers: share a list with students (class code + link). */
+  async shareDialog(list) {
+    let code;
+    try { code = await Cloud.share(list); }
+    catch (e) { return UI.toast('⚠️ ' + (e.message || 'Could not share the list.'), 'bad'); }
+    const link = Cloud.shareLink(code);
+    const choice = await UI.modal({
+      title: '🔗 Share with students',
+      html: `
+        <p>Students can get <b>${Util.esc(list.name)}</b> two ways. They don’t need an account.</p>
+        <p class="share-code" aria-label="Class code">${code.split('').join(' ')}</p>
+        <p class="center muted small">1) On the Spelling Adventures home page, type this class code, or</p>
+        <p class="share-link"><input readonly value="${Util.esc(link)}" aria-label="Class link"></p>
+        <p class="center muted small">2) open this link (post it in Google Classroom, email it, etc.).</p>
+        <p class="muted small">When you edit this list, students get the changes the next time they choose “Get latest from teacher.”</p>`,
+      buttons: [
+        { label: '🚫 Stop sharing', value: 'stop', cls: 'ghost danger-text' },
+        { label: '📋 Copy link', value: 'copy', cls: '' },
+        { label: 'Done', value: 'done', cls: 'primary' },
+      ],
+    });
+    if (choice === 'copy') {
+      try { await navigator.clipboard.writeText(link); UI.toast('📋 Link copied!', 'good'); }
+      catch (e) { UI.toast('Select the link and copy it with Ctrl+C.'); }
+    }
+    if (choice === 'stop' && await UI.confirm(`Stop sharing “${Util.esc(list.name)}”? Students who already have it keep their copy, but the code ${code} will stop working.`, 'Stop sharing', true)) {
+      await Cloud.unshare(Store.getList(list.id));
+      UI.toast('Sharing stopped.');
+      App.route();
+    }
   },
 
   notFound(main) {

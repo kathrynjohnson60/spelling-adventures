@@ -295,6 +295,26 @@ legend { font-family: var(--font-display); font-weight: 700; color: var(--plum);
 .theme-option input:checked + .theme-card { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(201, 75, 140, .3); }
 .theme-option input:focus-visible + .theme-card { outline: 4px solid #ffcf4d; }
 
+/* Accounts & class codes */
+#account-nav.signed-in:not(.active) { background: #e6f6ea; border-color: #a9dcb7; }
+.badge.class { background: #e3f1ff; border-color: #a9cdf2; }
+.badge.shared { background: #e6f6ea; border-color: #a9dcb7; }
+.join-card h2 { margin-bottom: .5em; }
+.join-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.join-form input { flex: 1; min-width: 160px; max-width: 280px; font-size: 1.4rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; text-align: center; }
+.account-card { max-width: 560px; }
+.google-btn { width: 100%; margin: 10px 0 4px; background: #fff; }
+.or-line { display: flex; align-items: center; gap: 10px; color: var(--ink-soft); margin: 16px 0 12px; font-size: .9rem; }
+.or-line::before, .or-line::after { content: ''; flex: 1; border-top: 2px dashed var(--line); }
+.account-form { margin-top: 8px; }
+.account-form input[type=email], .account-form input[type=password] { font: inherit; color: var(--ink); background: #fffdf7; border: 2px solid var(--line); border-radius: 12px; padding: .55em .8em; min-height: 46px; width: 100%; }
+.account-form input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201, 154, 60, .22); }
+.form-msg { min-height: 1.4em; margin-top: 6px; font-weight: 700; }
+.form-msg.bad { color: var(--bad); }
+.form-msg.good { color: var(--good); }
+.share-code { text-align: center; font: 700 clamp(2rem, 8vw, 2.8rem) var(--font); letter-spacing: .15em; color: var(--plum); background: #fffaf0; border: 3px dashed var(--gold); border-radius: 16px; padding: .2em .4em; margin: 10px 0 4px; }
+.share-link input { width: 100%; font-size: .9rem; }
+
 /* ---------- 5. Activity shell & shared pieces ---------- */
 .act-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .act-title { display: flex; align-items: center; gap: 12px; }
@@ -637,6 +657,12 @@ legend { font-family: var(--font-display); font-weight: 700; color: var(--plum);
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Four header buttons need room: show icons only on narrower screens so they always fit. */
+@media (max-width: 980px) {
+  .nav-btn span { display: none; }
+  .nav-btn { padding: .45em .7em; font-size: 1.2rem; }
 }
 
 @media (max-width: 860px) {

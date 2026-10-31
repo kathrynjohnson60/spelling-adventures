@@ -150,7 +150,7 @@ const Store = (() => {
         say: String(w.say || '').trim().slice(0, 60),   // optional "say it like" spelling for the voice
         pos: w.pos || 'auto',
       }));
-    return {
+    const out = {
       id: list.id || Util.uid(),
       name: String(list.name || 'My Spelling List').trim().slice(0, 80) || 'My Spelling List',
       grade: GRADES.some(g => g.id === String(list.grade)) ? String(list.grade) : 'custom',
@@ -158,7 +158,21 @@ const Store = (() => {
       created: list.created || Date.now(),
       updated: list.updated || Date.now(),
     };
+    // Account & class-code details (see cloud.js)
+    if (list.account) out.account = String(list.account);                 // belongs to this signed-in account
+    if (list.shareCode) out.shareCode = String(list.shareCode);           // teacher shared it with this class code
+    if (list.origin === 'class') {                                        // a student got it with a class code
+      out.origin = 'class';
+      out.classCode = String(list.classCode || '');
+      out.from = String(list.from || '').slice(0, 80);
+    }
+    return out;
   }
+
+  /* Lists made on this device while signed out are tucked away here while someone is
+     signed in (if they chose not to add them to their account), and come back on sign-out. */
+  const DEVICE_KEY = 'spellingAdventures.deviceLists';
+  const cloudOn = () => typeof Cloud !== 'undefined' && Cloud.user;
 
   return {
     load,
@@ -174,24 +188,59 @@ const Store = (() => {
     getList(id) { return data.lists.find(l => l.id === id); },
     saveList(list) {
       const l = clean({ ...list, updated: Date.now() });
+      if (cloudOn() && l.origin !== 'class') l.account = Cloud.user.uid;
       const i = data.lists.findIndex(x => x.id === l.id);
       if (i >= 0) data.lists[i] = l; else data.lists.push(l);
       save();
+      if (cloudOn()) Cloud.listSaved(l);
       return l;
     },
     deleteList(id) {
+      const gone = this.getList(id);
       data.lists = data.lists.filter(l => l.id !== id);
       delete data.missed[id];
       delete data.best[id];
       save();
+      if (gone && cloudOn()) Cloud.listDeleted(gone);
     },
     duplicateList(id) {
       const src = this.getList(id);
       if (!src) return null;
-      const copy = clean({ ...JSON.parse(JSON.stringify(src)), id: Util.uid(), name: `${src.name} (copy)`, created: Date.now() });
-      data.lists.push(copy);
+      const { shareCode, origin, classCode, from, account, ...rest } = JSON.parse(JSON.stringify(src));
+      return this.saveList({ ...rest, id: Util.uid(), name: `${src.name} (copy)`, created: Date.now() });
+    },
+
+    /* ----- accounts (see cloud.js) ----- */
+    /** Signed in: show the account's lists (plus any class lists on this device). */
+    useAccountLists(uid, cloudLists) {
+      const classLists = data.lists.filter(l => l.origin === 'class');
+      data.lists = cloudLists.map(l => clean({ ...l, account: uid })).concat(classLists);
       save();
-      return copy;
+    },
+    /** Keep this device's own lists safe while someone else's account is showing. */
+    stashDeviceLists(lists) {
+      try {
+        const prev = JSON.parse(localStorage.getItem(DEVICE_KEY) || '[]');
+        const ids = new Set(prev.map(l => l.id));
+        localStorage.setItem(DEVICE_KEY, JSON.stringify(prev.concat(lists.filter(l => !ids.has(l.id)))));
+      } catch (e) { /* ignore */ }
+    },
+    /** Signed out: put this device's own lists back. */
+    leaveAccount() {
+      if (!data.lists.some(l => l.account)) return;
+      let stash = [];
+      try { stash = JSON.parse(localStorage.getItem(DEVICE_KEY) || '[]'); localStorage.removeItem(DEVICE_KEY); } catch (e) { /* ignore */ }
+      data.lists = stash.map(clean).concat(data.lists.filter(l => l.origin === 'class'));
+      save();
+    },
+    /** Students: add (or refresh) a list from a teacher's class code. */
+    saveClassList(shared) {
+      const id = 'class-' + shared.code;
+      const l = clean({ id, name: shared.name, grade: shared.grade, words: shared.words, origin: 'class', classCode: shared.code, from: shared.from, created: Date.now() });
+      const i = data.lists.findIndex(x => x.id === id);
+      if (i >= 0) data.lists[i] = l; else data.lists.push(l);
+      save();
+      return l;
     },
 
     /* ----- missed words: every activity reports here ----- */
@@ -231,13 +280,13 @@ const Store = (() => {
       if (!Array.isArray(lists)) throw new Error('No spelling lists found in that file.');
       let n = 0;
       lists.forEach(l => {
-        const c = clean(l);
+        const { account, shareCode, ...rest } = l;   // an imported list becomes this user's own list
+        const c = clean(rest);
         if (!c.words.length) return;
         if (this.getList(c.id)) c.id = Util.uid();
-        data.lists.push(c);
+        this.saveList(c);
         n++;
       });
-      save();
       return n;
     },
     resetAll() {
@@ -245,8 +294,7 @@ const Store = (() => {
       try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
     },
     addSamples() {
-      SAMPLE_LISTS.forEach(l => data.lists.push(clean({ ...JSON.parse(JSON.stringify(l)), id: Util.uid() })));
-      save();
+      SAMPLE_LISTS.forEach(l => this.saveList({ ...JSON.parse(JSON.stringify(l)), id: Util.uid() }));
     },
   };
 })();

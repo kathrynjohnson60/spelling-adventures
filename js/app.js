@@ -8,6 +8,8 @@
      #/list/<id>[?missed=1]  one list + all activities
      #/play/<activity>/<id>[?missed=1]   run an activity
      #/settings              settings
+     #/account               sign in / my account (teachers & parents)
+     #/join/<CODE>           students: get a list with a class code
 
    Using the hash means the browser Back button works and nothing needs
    a web server — just open index.html.
@@ -25,6 +27,20 @@ const App = {
     Store.load();
     Speech.init();
     Speech.refreshPronunciations();
+    // Accounts: show the Sign in button (if set up) and refresh the screen when someone signs in or out.
+    const acct = Util.$('#account-nav');
+    if (acct) acct.hidden = !Cloud.enabled;
+    Cloud.onChange(u => {
+      if (acct) {
+        Util.$('span', acct).textContent = u ? 'My Account' : 'Sign in';
+        acct.title = u ? 'My Account (sign out here)' : 'Sign in';
+        acct.classList.toggle('signed-in', !!u);
+      }
+      // Don't interrupt a game or the list editor; everything else re-draws with the right lists.
+      const page = (location.hash.replace(/^#\/?/, '').split(/[/?]/)[0]) || 'home';
+      if (['home', 'list', 'account', 'settings'].includes(page)) this.route();
+    });
+    Cloud.init();
     window.addEventListener('hashchange', () => this.route());
     window.addEventListener('beforeunload', e => {
       if (this.isDirty && this.isDirty()) { e.preventDefault(); e.returnValue = ''; }
@@ -78,6 +94,8 @@ const App = {
       case 'edit': return Views.editor(main, parts[1]);
       case 'list': return Views.hub(main, parts[1], query);
       case 'settings': return Views.settings(main);
+      case 'account': return Views.account(main);
+      case 'join': return Views.join(main, parts[1]);
       case 'play': return this.play(main, parts[1], parts[2], query.get('missed') === '1');
       default: return Views.home(main);
     }

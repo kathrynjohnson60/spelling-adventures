@@ -8,6 +8,13 @@ Double-click **`index.html`**. It opens in your web browser. Chrome, Edge, or Sa
 
 You don't need an internet connection, an account, or any installs. Lists are saved in the browser you open it in, on that device.
 
+## Accounts and class codes
+
+- **Teachers and parents** can click **👤 Sign in** to use Google or an email and password. Signed-in lists are saved to the account and show up on any device where you sign in.
+- To give a list to students, open the list and click **🔗 Share with students**. You get a 6-letter **class code** and a link.
+- **Students don't sign in.** They type the code in the **"Have a class code?"** box on the home page, or open the link. Their scores and missed words stay on their own device.
+- Accounts only work on the website, not when you double-click `index.html`. The setup steps are in `SETUP-ACCOUNTS.md`.
+
 ## Getting words pronounced correctly
 
 Words are read by the browser's own voice. The voice quality depends on the browser:

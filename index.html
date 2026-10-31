@@ -34,9 +34,10 @@
       <span class="logo-text">Spelling <b>Adventures</b></span>
     </a>
     <nav aria-label="Main">
-      <a class="nav-btn" href="#/" data-nav="home">🏠 <span>My Lists</span></a>
-      <a class="nav-btn" href="#/new" data-nav="new">➕ <span>New List</span></a>
-      <a class="nav-btn" href="#/settings" data-nav="settings">⚙️ <span>Settings</span></a>
+      <a class="nav-btn" href="#/" data-nav="home" title="My Lists">🏠 <span>My Lists</span></a>
+      <a class="nav-btn" href="#/new" data-nav="new" title="New List">➕ <span>New List</span></a>
+      <a class="nav-btn" href="#/settings" data-nav="settings" title="Settings">⚙️ <span>Settings</span></a>
+      <a class="nav-btn" href="#/account" data-nav="account" id="account-nav" title="Sign in" hidden>👤 <span>Sign in</span></a>
     </nav>
   </header>
 
@@ -47,9 +48,16 @@
 
   <noscript><p style="text-align:center;padding:2em">Spelling Adventures needs JavaScript turned on.</p></noscript>
 
+  <!-- Teacher & parent accounts (Firebase). If these can't load (offline), the app still works without accounts. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
   <!-- Order matters: helpers first, then data, then activities, then screens, then the app starter. -->
+  <script src="js/firebase-config.js"></script>
   <script src="js/util.js"></script>
   <script src="js/store.js"></script>
+  <script src="js/cloud.js"></script>
   <script src="js/sentences.js"></script>
   <script src="js/activities/test.js"></script>
   <script src="js/activities/escape.js"></script>
