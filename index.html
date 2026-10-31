@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<!--
+  Spelling Adventures
+  A spelling practice app for grades 1–6+. Open this file in Chrome, Edge,
+  or Safari — no internet, server, or account needed. Lists are saved in
+  this browser (localStorage).
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Spelling Adventures</title>
+  <meta name="description" content="Make spelling lists and practice them with tests, games, flashcards, and sentences.">
+  <meta name="theme-color" content="#c94b8c">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>">
+  <!-- Storybook fonts: Cherry Swash for fairytale headings, Andika (made for beginning readers) for everything else.
+       If you're offline, the app falls back to built-in fonts. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Cherry+Swash:wght@400;700&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="app-header no-print">
+    <a class="logo" href="#/" aria-label="Spelling Adventures home">
+      <span class="logo-icon" aria-hidden="true">
+        <svg viewBox="0 0 64 64">
+          <path d="M8 46 L4 18 L20 30 L32 8 L44 30 L60 18 L56 46 Z" fill="#f2d27a" stroke="#c99a3c" stroke-width="2.5" stroke-linejoin="round"/>
+          <rect x="8" y="46" width="48" height="9" rx="3" fill="#e2ae5b" stroke="#c99a3c" stroke-width="2"/>
+          <circle cx="32" cy="34" r="5" fill="#e0559f"/><circle cx="18" cy="38" r="3.5" fill="#a46fd6"/><circle cx="46" cy="38" r="3.5" fill="#a46fd6"/>
+          <circle cx="4" cy="17" r="3" fill="#fff6c8"/><circle cx="32" cy="7" r="3.5" fill="#fff6c8"/><circle cx="60" cy="17" r="3" fill="#fff6c8"/>
+        </svg>
+      </span>
+      <span class="logo-text">Spelling <b>Adventures</b></span>
+    </a>
+    <nav aria-label="Main">
+      <a class="nav-btn" href="#/" data-nav="home">🏠 <span>My Lists</span></a>
+      <a class="nav-btn" href="#/new" data-nav="new">➕ <span>New List</span></a>
+      <a class="nav-btn" href="#/settings" data-nav="settings">⚙️ <span>Settings</span></a>
+    </nav>
+  </header>
+
+  <main id="app"></main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="modal-root"></div>
+
+  <noscript><p style="text-align:center;padding:2em">Spelling Adventures needs JavaScript turned on.</p></noscript>
+
+  <!-- Order matters: helpers first, then data, then activities, then screens, then the app starter. -->
+  <script src="js/util.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/sentences.js"></script>
+  <script src="js/activities/test.js"></script>
+  <script src="js/activities/escape.js"></script>
+  <script src="js/activities/match.js"></script>
+  <script src="js/activities/wordgames.js"></script>
+  <script src="js/activities/flashcards.js"></script>
+  <script src="js/activities/sentence-practice.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
